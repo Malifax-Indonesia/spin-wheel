@@ -7,6 +7,7 @@ import {
     Button,
     Stack,
 } from "@mui/material";
+import axios from "axios";
 
 interface AddParticipantModalProps {
     open: boolean;
@@ -21,8 +22,23 @@ export default function AddParticipantModal({
     const [companyName, setCompanyName] = useState("");
     const [token, setToken] = useState("");
 
-    const handleSubmit = () => {
+    const generateToken = () => {
+        const newToken = Math.random().toString(36).substring(2, 12); // contoh token random 10 karakter
+        setToken(newToken);
+    };
+
+    const handleSubmit = async () => {
         if (!name || !token) return alert("Name and Token are required!");
+        await axios.post('/api/participants', {
+            participants: [
+                {
+                    name,
+                    companyName,
+                    token,
+                }
+            ],
+        });
+
         setName("");
         setCompanyName("");
         setToken("");
@@ -60,12 +76,17 @@ export default function AddParticipantModal({
                         onChange={(e) => setCompanyName(e.target.value)}
                         fullWidth
                     />
-                    <TextField
-                        label="Token"
-                        value={token}
-                        onChange={(e) => setToken(e.target.value)}
-                        fullWidth
-                    />
+                    <Stack spacing={2}>
+                        <TextField
+                            label="Token"
+                            value={token}
+                            onChange={(e) => setToken(e.target.value)}
+                            fullWidth
+                        />
+                        <Button variant="contained" color="primary" onClick={generateToken}>
+                            Generate Token
+                        </Button>
+                    </Stack>
                     <Stack direction="row" justifyContent="flex-end" spacing={2} mt={2}>
                         <Button onClick={onClose} variant="outlined">
                             Cancel

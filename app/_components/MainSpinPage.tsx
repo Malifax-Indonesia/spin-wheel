@@ -190,6 +190,16 @@ const MainSpinPage = (props: SpinPageProps) => {
         return () => clearInterval(interval);
     }, [isSpinning]);
 
+    // Load Queue
+    const loadQueueData = async () => {
+        try {
+            const res = await api.get("/queue");
+            setQueues(res.data);
+        } catch (error) {
+            console.error("Failed to fetch queue data", error);
+        }
+    }
+
 
     // Delete Participant
     const deleteParticipant = async (id: number) => {
@@ -344,46 +354,49 @@ const MainSpinPage = (props: SpinPageProps) => {
     };
 
     const spin = async () => {
-        console.log('SPIN')
-        console.log({ participants })
+        if (participants.length === 0) {
+            console.warn("Tidak ada peserta untuk dipilih");
+            setIsSpinning(false);
+            return;
+        }
+
         setIsSpinning(true);
-        console.log({ queuePrize });
+        spinSound.current?.play();
 
         let winnerObj: { id: number; name: string } | undefined;
         let winnerIndex: number;
         let prizeId: number | null = null;
 
-        spinSound.current?.play();
-
+        console.log({ queuePrize, queueId })
         if (queuePrize && queueId) {
-            // --- kalau ada queue, pakai winner dari queue
-            winnerObj = participants.find((p) => p.name === queuePrize.winner);
-            if (!winnerObj) {
+            // --- kalau ada queue, cari peserta sesuai queue
+            console.log('Queue ditemukan')
+            winnerIndex = participants.findIndex((p) => p.name === queuePrize.winner);
+
+            if (winnerIndex !== -1) {
+                // Ketemu di daftar
+                console.log('Peserta ditemukan di daftar')
+                winnerObj = participants[winnerIndex];
+                prizeId = queuePrize.id ?? 0;
+            } else {
+                console.log('Peserta tidak ditemukan')
+                // Tidak ketemu → fallback ke random
                 console.warn("Peserta dari queue tidak ditemukan, fallback ke random");
                 winnerIndex = Math.floor(Math.random() * participants.length);
                 winnerObj = participants[winnerIndex];
             }
-            winnerIndex = participants.findIndex((p) => p.name === queuePrize.winner);
-            prizeId = queuePrize.id ?? 0;
         } else {
-            // --- kalau queue kosong, ambil random participant
-            if (participants.length === 0) {
-                console.warn("Tidak ada peserta dipilih, fallback ke random");
-                // alert("Tidak ada peserta untuk dipilih");
-                // setIsSpinning(false);
-                // return;
-            }
+            // --- kalau queue kosong, ambil random
+            console.log('Queue kosong')
             winnerIndex = Math.floor(Math.random() * participants.length);
             winnerObj = participants[winnerIndex];
         }
 
+        // Hitung sudut
         const A = 360 / participants.length;
         const centerDeg = winnerIndex * A + A / 2;
 
-        // Top Center
-        // const centerDegFromPointer = (centerDeg - 90 + 180 + 360) % 360;
-
-        // Right Center
+        // Pointer di kanan
         const centerDegFromPointer = (centerDeg - 0 + 360) % 360;
 
         const baseRotation = rotation % 360;
@@ -394,19 +407,12 @@ const MainSpinPage = (props: SpinPageProps) => {
 
         animateSpin(rotation, finalRotation, 10000, async () => {
             if (queueId) {
-                // update queue kalau memang dari queue
+                console.log('update patch ke queue ' + queueId)
                 await axios.patch("/api/queue", {
                     id: queueId,
                     is_spun: 1,
                 });
             }
-
-            // kalau mau simpan ke winners table, bisa cek prizeId null / tidak
-            // await axios.post("/api/winners", {
-            //   prize_id: prizeId,
-            //   participant_id: winnerObj?.id,
-            //   won_at: new Date().toISOString()
-            // });
 
             setWinnerModal(true);
             setWinnerParticipant(winnerObj!.name);
@@ -416,6 +422,7 @@ const MainSpinPage = (props: SpinPageProps) => {
             return () => clearTimeout(timer);
         });
     };
+
 
 
 
@@ -1143,12 +1150,16 @@ const MainSpinPage = (props: SpinPageProps) => {
                     onClose={() => {
                         setWinnerModal(false)
                         setIsSpinning(false)
+                        setShowConfetti(false)
+                        loadQueueData()
                     }}
                     winnerName={winnerParticipant}
                     onRemove={() => {
                         deleteParticipant(winnerParticipantId)
                         setWinnerModal(false)
                         setIsSpinning(false)
+                        setShowConfetti(false)
+                        loadQueueData()
                     }}
                 />
             }
