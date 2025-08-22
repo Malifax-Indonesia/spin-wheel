@@ -1,8 +1,9 @@
 "use client";
 import api from "@/lib/axios";
 import uploadToCloudinary from "@/lib/cloudinary";
-import { Delete } from "@mui/icons-material";
+import { Delete, Shuffle } from "@mui/icons-material";
 import {
+    Autocomplete,
     Box,
     Button,
     Chip,
@@ -569,7 +570,7 @@ export default function SettingsPage() {
                 {/* Prizes Section */}
                 <Box aria-label="prizes-container"
                     sx={{
-                        width: "30%",
+                        width: "40%",
                         p: 3,
                         display: "flex", flexDirection: "column",
                         gap: 2,
@@ -603,25 +604,39 @@ export default function SettingsPage() {
                                     label="Prize Name"
                                     value={prize.name}
                                     onChange={(e) => updatePrize(idx, "name", e.target.value)}
-                                    fullWidth
+                                    sx={{
+                                        width: "200px"
+                                    }}
                                 />
 
-                                <FormControl sx={{ minWidth: 160 }}>
-                                    <Select
-                                        value={prize.winner || ""}
-                                        onChange={(e) => updatePrize(idx, "winner", e.target.value || null)}
-                                        displayEmpty
-                                    >
-                                        <MenuItem value="">(Random)</MenuItem>
-                                        {participants.map((p) => (
-                                            <MenuItem key={p.token || p.name} value={p.name}>
-                                                {p.name}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
+                                {/* Autocomplete for Winner */}
+                                <Autocomplete
+                                    options={participants}
+                                    getOptionLabel={(option) => option.name}
+                                    value={participants.find((p) => p.name === prize.winner) || null}
+                                    onChange={(_, newValue) =>
+                                        updatePrize(idx, "winner", newValue ? newValue.name : null)
+                                    }
+                                    renderInput={(params) => (
+                                        <TextField {...params} label="Winner" />
+                                    )}
+                                    sx={{ width: 200 }}
+                                />
 
-                                {/* Upload Image */}
+
+                                {/* Button untuk random (set winner ke null) */}
+                                <IconButton
+                                    color="primary"
+                                    sx={{
+                                        bgcolor: prize.winner ? "transparent" : "#3369e8",
+                                        color: prize.winner ? "#3369e8" : "white",
+                                    }}
+                                    onClick={() => updatePrize(idx, "winner", null)}
+                                >
+                                    <Shuffle />
+                                </IconButton>
+
+                                {/* Button untuk hapus prize */}
                                 <IconButton color="error" onClick={() => removePrize(idx)}>
                                     <Delete />
                                 </IconButton>
