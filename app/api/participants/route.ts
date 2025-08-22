@@ -61,7 +61,7 @@ export async function DELETE(req: Request) {
     });
   }
 
-  db.prepare("DELETE FROM participants WHERE token = ?").run(id.trim());
+  db.prepare("DELETE FROM participants WHERE id = ?").run(id);
 
   return Response.json({ success: true });
 }

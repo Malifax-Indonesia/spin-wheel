@@ -5,6 +5,7 @@ import { Delete } from "@mui/icons-material";
 import {
     Box,
     Button,
+    Chip,
     FormControl,
     IconButton,
     MenuItem,
@@ -18,6 +19,9 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ReplayIcon from '@mui/icons-material/Replay';
+import AddParticipantModal from "../_components/AddParticipantModal";
+import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt';
 
 export type Prize = {
     id?: number;
@@ -26,11 +30,44 @@ export type Prize = {
     image?: string;
 };
 
+export type Queue = {
+    id: number;
+    prize_name: string;
+    is_spun: boolean;
+    order_num: number;
+}
+
+export type Participant = {
+    id: number;
+    name: string;
+    companyName?:
+    string;
+    token?: string;
+    is_deleted?: boolean;
+}
+
+
+const queueGuide: Array<{ name: string, color: string }> = [
+    {
+        name: "Next Appear on Spin",
+        color: "#A8E6CF"
+    },
+    {
+        name: "Queue",
+        color: "transparent"
+    },
+    {
+        name: "Has been Appear on Spin",
+        color: "#FF8B94"
+    }
+]
 
 export default function SettingsPage() {
-    const [participants, setParticipants] = useState<{ id: number; name: string; companyName?: string; token?: string }[]>([]);
+    const [participants, setParticipants] = useState<Participant[]>([]);
     const [prizes, setPrizes] = useState<Prize[]>([]);
-    const [queue, setQueue] = useState<any[]>([]);
+    const [queue, setQueue] = useState<Queue[]>([]);
+
+    const [addParticipantOpen, setAddParticipantOpen] = useState<boolean>(false);
 
     // Load All Data
     const loadData = async () => {
@@ -245,6 +282,19 @@ export default function SettingsPage() {
         setPrizes(updated);
     };
 
+    async function removeParticipant(id: number) {
+        try {
+            const res = await axios.delete("/api/participants", {
+                data: { id } // body harus diisi di key "data"
+            });
+            participants.filter((p) => p.id !== id);
+            return res.data;
+        } catch (error) {
+            console.error("Delete failed:", error);
+            throw error;
+        }
+    }
+
     // Function submit participants dengan validasi token unik
     const onSubmitParticipants = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -276,7 +326,8 @@ export default function SettingsPage() {
             );
 
             // update state di frontend juga
-            loadData()
+            // loadData()
+            loadParticipantData()
             // setParticipants(
             //   participants.map((p) => ({
             //     ...p,
@@ -298,14 +349,15 @@ export default function SettingsPage() {
 
             <Stack spacing={4} direction={"row"}>
                 {/* Queue Section */}
-                <Paper sx={{ p: 3, width: "30%", display: "flex", flexDirection: "column", gap: 3, }}>
+                <Paper sx={{ p: 3, width: "25%", display: "flex", flexDirection: "column", gap: 3, }}>
 
                     <Box aria-label="top-area"
                         sx={{
                             width: "100%",
                             display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center"
+                            flexDirection: "column",
+                            // justifyContent: "space-between",
+                            // alignItems: "center"
                         }}
                     >
                         <Typography variant="h6" gutterBottom>
@@ -337,24 +389,63 @@ export default function SettingsPage() {
                     </Box>
 
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                        {queue.map((item, idx) => (
-                            <Box key={item.id}
+                        {queue.map((item, idx) => {
+                            const firstUnspunIndex = queue.findIndex(q => !q.is_spun);
+                            const isFirstUnspun = idx === firstUnspunIndex;
+
+                            return (
+                                <Box key={item.id}
+                                    sx={{
+                                        display: "flex", alignItems: "center",
+                                        gap: 1, border: "1px solid #aaa",
+                                        paddingY: 1, paddingX: 2,
+                                        bgcolor: isFirstUnspun ? "#A8E6CF" : item.is_spun ? "#FF8B94" : "transparent",
+                                    }}
+                                >
+                                    <Typography sx={{ flex: 1 }}>{item.prize_name}</Typography>
+                                    <IconButton size="small" onClick={() => moveQueue(idx, "up")}
+                                        disabled={idx === 0}>
+                                        <ArrowUpwardIcon fontSize="small" />
+                                    </IconButton>
+                                    <IconButton size="small" onClick={() => moveQueue(idx, "down")}
+                                        disabled={idx === queue.length - 1}>
+                                        <ArrowDownwardIcon fontSize="small" />
+                                    </IconButton>
+                                </Box>
+                            )
+                        })}
+                    </Box>
+
+                    <Box aria-label="guide"
+                        sx={{
+                            width: "100%",
+                            height: "10px",
+                            display: "flex", flexDirection: "column",
+                            gap: 1,
+                        }}
+                    >
+                        {queueGuide.map((item, idx) => (
+                            <Box aria-label="guide-point"
+                                key={idx}
                                 sx={{
-                                    display: "flex", alignItems: "center",
-                                    gap: 1, border: "1px solid #aaa",
-                                    paddingY: 1, paddingX: 2,
-                                    bgcolor: item.is_spun ? "#e0f7fa" : "transparent",
+                                    width: "100%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1,
                                 }}
                             >
-                                <Typography sx={{ flex: 1 }}>{item.prize_name}</Typography>
-                                <IconButton size="small" onClick={() => moveQueue(idx, "up")}
-                                    disabled={idx === 0}>
-                                    <ArrowUpwardIcon fontSize="small" />
-                                </IconButton>
-                                <IconButton size="small" onClick={() => moveQueue(idx, "down")}
-                                    disabled={idx === queue.length - 1}>
-                                    <ArrowDownwardIcon fontSize="small" />
-                                </IconButton>
+                                <Box aria-label="circle"
+                                    sx={{
+                                        width: 12, height: 12,
+                                        borderRadius: "50%",
+                                        bgcolor: item.color,
+                                        border: "0.2px solid black"
+                                    }}
+                                />
+
+                                <Typography sx={{ fontSize: 10, color: "black" }}>
+                                    {item.name}
+                                </Typography>
                             </Box>
                         ))}
                     </Box>
@@ -373,8 +464,26 @@ export default function SettingsPage() {
                             Participants
                         </Typography>
 
-                        <Button onClick={resetParticipants} variant="contained">Reset Participants</Button>
+
+                        <Box aria-label="right-area"
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                            }}
+                        >
+                            <IconButton color="success" onClick={() => setAddParticipantOpen(true)}>
+                                <PersonAddAltIcon />
+                            </IconButton>
+                            <IconButton color="success" onClick={() => loadParticipantData()}>
+                                <ReplayIcon />
+                            </IconButton>
+                            <Button onClick={resetParticipants} variant="contained"
+                                size="small" color="warning"
+                            >Reset Soft Delete</Button>
+                        </Box>
                     </Box>
+
                     <Box component="form" onSubmit={onSubmitParticipants}>
                         <Box
                             sx={{
@@ -399,32 +508,59 @@ export default function SettingsPage() {
                                 pt: 1,
                             }}
                         >
-                            {participants.map((p, idx) => (
-                                <Box key={p.token || idx}
-                                    sx={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 1,
-                                        border: "1px solid black",
-                                        padding: 2,
-                                    }}
-                                >
-                                    <Typography aria-label="text-display"
+                            {participants
+                                .sort((a, b) => {
+                                    if (a.is_deleted && !b.is_deleted) return -1;
+                                    if (!a.is_deleted && b.is_deleted) return 1;
+
+                                    return b.id - a.id;
+                                })
+                                .map((p, idx) => (
+                                    <Box key={p.token || idx}
                                         sx={{
-                                            fontSize: 16,
-                                            color: "black"
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 1,
+                                            border: "1px solid black",
+                                            padding: 2,
+                                            bgcolor: p.is_deleted ? "#FF8B94" : "transparent"
                                         }}
                                     >
-                                        {p.name} - {p.companyName}
-                                    </Typography>
-                                    {/* <IconButton color="error" onClick={() => {
+                                        <Box aria-label="left-area"
+                                            sx={{
+                                                width: "100%",
+                                                display: "flex", flexDirection: "column"
+                                            }}
+                                        >
+                                            <Typography aria-label="text-display"
+                                                sx={{
+                                                    fontSize: 14,
+                                                    color: "black"
+                                                }}
+                                            >
+                                                {p.name}
+                                            </Typography>
+                                            <Typography aria-label="text-display"
+                                                sx={{
+                                                    fontSize: 12,
+                                                    color: "black"
+                                                }}
+                                            >
+                                                {p.companyName}
+                                            </Typography>
+                                        </Box>
+
+                                        <IconButton color="error" onClick={() => removeParticipant(p.id)}>
+                                            <Delete />
+                                        </IconButton>
+                                        {/* <IconButton color="error" onClick={() => {
                                         const updated = participants.filter((_, i) => i !== idx);
                                         setParticipants(updated);
                                     }}>
                                         <Delete />
                                     </IconButton> */}
-                                </Box>
-                            ))}
+                                    </Box>
+                                ))}
                         </Box>
                         {/* <Button type="submit" variant="constained" color="primary" sx={{ mt: 2 }}>Submit Participants</Button> */}
                     </Box>
@@ -502,6 +638,11 @@ export default function SettingsPage() {
                     </Stack>
                 </Box>
             </Stack>
+
+            <AddParticipantModal
+                open={addParticipantOpen}
+                onClose={() => setAddParticipantOpen(false)}
+            />
         </Box>
     );
 }
