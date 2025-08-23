@@ -103,7 +103,8 @@ const MainSpinPage = (props: SpinPageProps) => {
         // hanya jalan di client
         if (typeof window !== "undefined") {
             spinSound.current = new Audio("/sfx/spin-sfx.wav");
-            winSound.current = new Audio("/sfx/complete-sfx.mp3");
+            // winSound.current = new Audio("/sfx/complete-sfx.mp3");
+            winSound.current = new Audio("/sfx/applause.mp3");
         }
     }, []);
 
@@ -353,6 +354,18 @@ const MainSpinPage = (props: SpinPageProps) => {
         requestAnimationFrame(animate);
     };
 
+    function getRandomIndex(participants: { name: string }[], reserved: string[]): number {
+        let index: number;
+        let attempts = 0;
+        const maxAttempts = 100; // biar ga infinite loop
+        do {
+            index = Math.floor(Math.random() * participants.length);
+            attempts++;
+        } while (reserved.includes(participants[index].name) && attempts < maxAttempts);
+
+        return index;
+    }
+
     const spin = async () => {
         if (participants.length === 0) {
             console.warn("Tidak ada peserta untuk dipilih");
@@ -367,7 +380,11 @@ const MainSpinPage = (props: SpinPageProps) => {
         let winnerIndex: number;
         let prizeId: number | null = null;
 
-        console.log({ queuePrize, queueId })
+        const reservedWinners = queues
+            .filter((q) => q.is_spun === 0 && q.winner) // belum spin dan ada winner
+            .map((q) => q.winner); // ambil namanya
+
+
         if (queuePrize && queueId) {
             // --- kalau ada queue, cari peserta sesuai queue
             console.log('Queue ditemukan')
@@ -382,13 +399,14 @@ const MainSpinPage = (props: SpinPageProps) => {
                 console.log('Peserta tidak ditemukan')
                 // Tidak ketemu → fallback ke random
                 console.warn("Peserta dari queue tidak ditemukan, fallback ke random");
-                winnerIndex = Math.floor(Math.random() * participants.length);
+                // winnerIndex = Math.floor(Math.random() * participants.length);
+                winnerIndex = getRandomIndex(participants, reservedWinners);
                 winnerObj = participants[winnerIndex];
             }
         } else {
             // --- kalau queue kosong, ambil random
             console.log('Queue kosong')
-            winnerIndex = Math.floor(Math.random() * participants.length);
+            winnerIndex = getRandomIndex(participants, reservedWinners);
             winnerObj = participants[winnerIndex];
         }
 
