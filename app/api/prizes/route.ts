@@ -35,3 +35,27 @@ export async function POST(req: Request) {
 
   return Response.json({ success: true });
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const { id } = await req.json();
+
+    if (!id) {
+      return new Response(JSON.stringify({ error: "ID is required" }), {
+        status: 400,
+      });
+    }
+
+    // Hapus dari prizes
+    db.prepare("DELETE FROM queue WHERE prize_id = ?").run(id);
+    db.prepare("DELETE FROM prizes WHERE id = ?").run(id);
+    // Hapus dari queue
+
+    return Response.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+    });
+  }
+}

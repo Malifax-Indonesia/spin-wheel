@@ -278,9 +278,15 @@ export default function SettingsPage() {
         setPrizes(updated);
     };
 
-    const removePrize = (index: number) => {
-        const updated = prizes.filter((_, i) => i !== index);
-        setPrizes(updated);
+    const removePrize = async (id: number) => {
+        try {
+            await axios.delete("/api/prizes", { data: { id } });
+
+            // Update state setelah berhasil
+            setPrizes((prev) => prev.filter((p) => p.id !== id));
+        } catch (error) {
+            console.error("Failed to delete prize:", error);
+        }
     };
 
     async function removeParticipant(id: number) {
@@ -637,7 +643,7 @@ export default function SettingsPage() {
                                 </IconButton>
 
                                 {/* Button untuk hapus prize */}
-                                <IconButton color="error" onClick={() => removePrize(idx)}>
+                                <IconButton color="error" onClick={() => removePrize(prize.id ?? 0)}>
                                     <Delete />
                                 </IconButton>
                             </Stack>
