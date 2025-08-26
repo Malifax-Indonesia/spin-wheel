@@ -34,6 +34,9 @@ type SpinPageProps = {
 const MainSpinPage = (props: SpinPageProps) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+    const [isHideMode, setIsHideMode] = useState<boolean>(false);
+
     const [queues, setQueues] = useState<any[]>([]);
     const [allParticipants, setAllParticipants] = useState<{ id: number; name: string, is_deleted: boolean }[]>([]);
     const [participants, setParticipants] = useState<{ id: number; name: string }[]>([]);
@@ -155,7 +158,7 @@ const MainSpinPage = (props: SpinPageProps) => {
 
             setParticipants(participantsList);
             setAllParticipants(allParticipantsList)
-            setParticipantsText(participantsList.map(p => p.name).join("\n"));
+            setParticipantsText(participantsList.sort((a, b) => b.id - a.id).map(p => p.name).join("\n"));
             setPrizes(prizesRes.data);
 
             // Ambil prize dari queue dengan order_num terendah dan is_spun = 0
@@ -888,7 +891,7 @@ const MainSpinPage = (props: SpinPageProps) => {
                                     sx={{
                                         width: "120px",
                                         paddingY: 1,
-                                        display: "flex",
+                                        display: isHideMode ? "none" : "flex",
                                         alignItems: "center",
                                         justifyContent: "center",
                                         gap: 0.7,
@@ -933,7 +936,7 @@ const MainSpinPage = (props: SpinPageProps) => {
                                     sx={{
                                         width: "120px",
                                         paddingY: 1,
-                                        display: "flex",
+                                        display: isHideMode ? "none" : "flex",
                                         alignItems: "center",
                                         justifyContent: "center",
                                         gap: 0.7,
@@ -982,7 +985,11 @@ const MainSpinPage = (props: SpinPageProps) => {
                                     // gap: 1,
                                 }}
                             >
-                                <Checkbox sx={{ color: "white", transform: "scale(0.8)", "&.Mui-checked": { color: "white" } }} />
+                                <Checkbox
+                                    onChange={() => setIsHideMode(!isHideMode)}
+                                    sx={{ color: "white", transform: "scale(0.8)", "&.Mui-checked": { color: "white" } }}
+
+                                />
                                 <Typography sx={{ color: "white", fontSize: 14, mr: 0.3 }}>Hide</Typography>
                             </Box>
                         </Box>
@@ -995,7 +1002,8 @@ const MainSpinPage = (props: SpinPageProps) => {
                                 borderRadius: "5px",
                                 paddingX: 2,
                                 paddingY: 2,
-                                display: "flex", flexDirection: "column",
+                                display: isHideMode ? "none" : "flex",
+                                flexDirection: "column",
                                 gap: 2,
                             }}
                         >
