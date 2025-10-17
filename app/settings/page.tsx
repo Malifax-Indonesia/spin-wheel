@@ -327,10 +327,16 @@ export default function SettingsPage() {
         }
     };
 
-    async function removeParticipant(id: number) {
+    async function removeParticipant(id: number, name: string) {
         try {
+            addNotification("Deleting participant...", "info");
             const res = await axios.delete("/api/participants", {
                 data: { id } // body harus diisi di key "data"
+            }).then((res) => {
+                addNotification(`Participant ${name} deleted successfully`, "success");
+                return res.data
+            }).catch(() => {
+                addNotification(`Failed to delete participant ${name}`, "error");
             });
             participants.filter((p) => p.id !== id);
             return res.data;
@@ -669,7 +675,7 @@ export default function SettingsPage() {
                                             </Typography>
                                         </Box>
 
-                                        <IconButton color="error" onClick={() => removeParticipant(p.id)}>
+                                        <IconButton color="error" onClick={() => removeParticipant(p.id, p.name)}>
                                             <Delete />
                                         </IconButton>
                                         {/* <IconButton color="error" onClick={() => {
