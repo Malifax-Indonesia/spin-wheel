@@ -1,28 +1,27 @@
 "use client";
 import api from "@/lib/axios";
-import uploadToCloudinary from "@/lib/cloudinary";
 import { Delete, Shuffle } from "@mui/icons-material";
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import GroupAddIcon from '@mui/icons-material/GroupAdd';
+import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt';
+import ReplayIcon from '@mui/icons-material/Replay';
 import {
     Autocomplete,
     Box,
     Button,
-    Chip,
-    FormControl,
     IconButton,
-    MenuItem,
     Paper,
-    Select,
     Stack,
     TextField,
     Typography
 } from "@mui/material";
 import axios from "axios";
 import { useEffect, useState } from "react";
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import ReplayIcon from '@mui/icons-material/Replay';
 import AddParticipantModal from "../_components/AddParticipantModal";
-import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt';
+import AddParticipantBulkModal from "../_components/AddParticipantBulkModal";
+import { useNotification } from "../_components/useNotification";
+import StackedNotifications from "../_components/StackedNotification";
 
 export type Prize = {
     id?: number;
@@ -69,6 +68,21 @@ export default function SettingsPage() {
     const [queue, setQueue] = useState<Queue[]>([]);
 
     const [addParticipantOpen, setAddParticipantOpen] = useState<boolean>(false);
+    const [addParticipantBulkOpen, setAddParticipantBulkOpen] = useState<boolean>(false);
+
+    const { notifications, addNotification, removeNotification } = useNotification();
+
+    // Add Bulk Participants State
+    const [textAreaValue, setTextAreaValue] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    const generateToken = (name: string) => {
+        const clean = name.trim().replace(/\s+/g, "_").toLowerCase();
+        const rand = Math.random().toString(36).substring(2, 8);
+        return `${clean}_${rand}`;
+    };
+
+    // console.log({ notifications })
 
     // Load All Data
     const loadData = async () => {
@@ -99,8 +113,15 @@ export default function SettingsPage() {
     // Fetch Queue Data
     const loadQueueData = async () => {
         try {
-            const res = await api.get("/queue");
-            setQueue(res.data);
+            addNotification("Loading queue data...", "info");
+            await api.get("/queue")
+                .then((res) => {
+                    addNotification("Queue data loaded successfully", "success");
+                    setQueue(res.data);
+                })
+                .catch(() => {
+                    addNotification("Failed to load queue data", "error");
+                });
         } catch (error) {
             console.error("Failed to fetch queue data", error);
         }
@@ -109,8 +130,16 @@ export default function SettingsPage() {
     // Fetch Participant Data
     const loadParticipantData = async () => {
         try {
-            const res = await api.get("/participants");
-            setParticipants(res.data);
+            addNotification("Loading participant data...", "info");
+
+            await api.get("/participants")
+                .then((res) => {
+                    addNotification("Participant data loaded successfully", "success");
+                    setParticipants(res.data);
+                })
+                .catch(() => {
+                    addNotification("Failed to load participant data", "error");
+                })
         } catch (error) {
             console.error("Failed to fetch participant data", error);
         }
@@ -119,14 +148,23 @@ export default function SettingsPage() {
     // Reset Queue Data
     const resetQueueData = async () => {
         try {
+            addNotification("Resetting queue...", "info");
             const res = await axios.get("/api/queue"); // ambil semua data queue
             const allQueue = res.data;
 
             // Loop semua data, update jadi is_spun = 0
             await Promise.all(
-                allQueue.map((item: any) =>
-                    axios.patch(`/api/queue`, { id: item.id, is_spun: 0 })
-                )
+                allQueue
+                    .filter((item: any) => item.is_spun === 1)
+                    .map((item: any) =>
+                        axios.patch(`/api/queue`, { id: item.id, is_spun: 0 })
+                            .then((res) => {
+                                addNotification(`Queue ${item.prize_name} reset successfully`, "success");
+                            })
+                            .catch(() => {
+                                addNotification(`Queue ${item.prize_name} reset failed`, "error");
+                            })
+                    )
             );
 
             console.log("Queue berhasil direset!");
@@ -153,62 +191,62 @@ export default function SettingsPage() {
         loadData();
     };
 
-    const loadFromGoogleSheet = async () => {
-        try {
-            const sheetRes = await axios.get('/api/participants/google-sheet');
-            const sheetData = sheetRes.data?.data || [];
+    // const loadFromGoogleSheet = async () => {
+    //     try {
+    //         const sheetRes = await axios.get('/api/participants/google-sheet');
+    //         const sheetData = sheetRes.data?.data || [];
 
-            const localRes = await axios.get('/api/participants');
-            const localData = localRes.data || [];
+    //         const localRes = await axios.get('/api/participants');
+    //         const localData = localRes.data || [];
 
-            // Gunakan token sebagai unique identifier
-            const localTokens = new Set(localData.map((p: any) => p.token?.trim()));
+    //         // Gunakan token sebagai unique identifier
+    //         const localTokens = new Set(localData.map((p: any) => p.token?.trim()));
 
-            // Ambil peserta baru beserta companyName dan token, hanya jika token belum ada
-            const newParticipants = sheetData
-                .filter((p: any) => p.token && !localTokens.has(p.token.trim()))
-                .map((p: any) => ({
-                    name: p.fullName.trim(),
-                    companyName: p.companyName?.trim() || "",
-                    token: p.token?.trim() || ""
-                }));
+    //         // Ambil peserta baru beserta companyName dan token, hanya jika token belum ada
+    //         const newParticipants = sheetData
+    //             .filter((p: any) => p.token && !localTokens.has(p.token.trim()))
+    //             .map((p: any) => ({
+    //                 name: p.fullName.trim(),
+    //                 companyName: p.companyName?.trim() || "",
+    //                 token: p.token?.trim() || ""
+    //             }));
 
-            if (newParticipants.length > 0) {
-                // Gabungkan dengan data lokal
-                const allParticipants = [
-                    ...localData.map((p: any) => ({
-                        name: p.name?.trim(),
-                        companyName: p.companyName?.trim() || "",
-                        token: p.token?.trim() || ""
-                    })),
-                    ...newParticipants
-                ];
+    //         if (newParticipants.length > 0) {
+    //             // Gabungkan dengan data lokal
+    //             const allParticipants = [
+    //                 ...localData.map((p: any) => ({
+    //                     name: p.name?.trim(),
+    //                     companyName: p.companyName?.trim() || "",
+    //                     token: p.token?.trim() || ""
+    //                 })),
+    //                 ...newParticipants
+    //             ];
 
-                // Update participantsText hanya dengan nama saja
-                // setParticipantsText(
-                //     allParticipants.map(p => p.name).join("\n")
-                // );
+    //             // Update participantsText hanya dengan nama saja
+    //             // setParticipantsText(
+    //             //     allParticipants.map(p => p.name).join("\n")
+    //             // );
 
 
-                console.log({ newParticipants })
-                await axios.post('/api/participants', {
-                    participants: newParticipants,
-                });
-                loadParticipantData()
-                console.log(`Added ${newParticipants.length} new participants from Google Sheet`);
-            }
-        } catch (err) {
-            console.error('Gagal sync dari Google Sheet:', err);
-        }
-    };
+    //             console.log({ newParticipants })
+    //             await axios.post('/api/participants', {
+    //                 participants: newParticipants,
+    //             });
+    //             loadParticipantData()
+    //             console.log(`Added ${newParticipants.length} new participants from Google Sheet`);
+    //         }
+    //     } catch (err) {
+    //         console.error('Gagal sync dari Google Sheet:', err);
+    //     }
+    // };
 
     // Fetch Logic
     useEffect(() => {
         loadData();
-        loadFromGoogleSheet();
+        // loadFromGoogleSheet();
 
         const interval = setInterval(() => {
-            loadFromGoogleSheet();
+            // loadFromGoogleSheet();
         }, 10000);
         return () => clearInterval(interval);
     }, []);
@@ -323,13 +361,84 @@ export default function SettingsPage() {
         }
     };
 
-    const resetParticipants = async () => {
+    const onSubmitBulkParticipants = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setLoading(true);
+
         try {
+            // Ambil token yang sudah ada di database
+            const localRes = await axios.get("/api/participants");
+            const localData = localRes.data || [];
+            const existingTokens = new Set(localData.map((p: any) => p.token?.trim()));
+
+            // Pisah berdasarkan newline
+            const names = textAreaValue
+                .split("\n")
+                .map((n) => n.trim())
+                .filter((n) => n.length > 0);
+
+            // Generate participants baru
+            const newParticipants = names.map((name) => ({
+                name,
+                companyName: "Default Company",
+                token: generateToken(name),
+                is_deleted: false,
+            }));
+
+            // Filter biar gak duplikat token
+            const uniqueParticipants = newParticipants.filter(
+                (p) => !existingTokens.has(p.token)
+            );
+
+            if (uniqueParticipants.length === 0) {
+                // Swal.fire({
+                //   icon: "info",
+                //   title: "Tidak ada peserta baru",
+                //   text: "Semua nama sudah ada di database.",
+                // });
+                setLoading(false);
+                return;
+            }
+
+            // POST ke API
+            await axios.post("/api/participants", { participants: uniqueParticipants });
+
+            //   Swal.fire({
+            //     icon: "success",
+            //     title: "Berhasil!",
+            //     text: `${uniqueParticipants.length} peserta berhasil ditambahkan.`,
+            //     timer: 2000,
+            //     showConfirmButton: false,
+            //   });
+
+            setTextAreaValue("");
+        } catch (err: any) {
+            //   Swal.fire({
+            //     icon: "error",
+            //     title: "Gagal menambahkan peserta",
+            //     text: err.message || "Terjadi kesalahan",
+            //   });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const resetSoftDeleteParticipants = async () => {
+        try {
+            addNotification("Starting to reset participants...", "info");
             // update semua participant jadi is_deleted = false
             await Promise.all(
-                participants.map((p) =>
-                    axios.patch(`/api/participants/`, { id: p.id, is_deleted: false })
-                )
+                participants
+                    .filter((p) => p.is_deleted)
+                    .map((p) =>
+                        axios.patch(`/api/participants/`, { id: p.id, is_deleted: false })
+                            .then((res) => {
+                                addNotification(`Participant ${p.name} reset successfully`, "success");
+                            })
+                            .catch(() => {
+                                addNotification(`Participant ${p.name} reset failed`, "error");
+                            })
+                    )
             );
 
             // update state di frontend juga
@@ -479,15 +588,18 @@ export default function SettingsPage() {
                                 gap: 1,
                             }}
                         >
+                            <IconButton color="success" onClick={() => setAddParticipantBulkOpen(true)}>
+                                <GroupAddIcon />
+                            </IconButton>
                             <IconButton color="success" onClick={() => setAddParticipantOpen(true)}>
                                 <PersonAddAltIcon />
                             </IconButton>
                             <IconButton color="success" onClick={() => loadParticipantData()}>
                                 <ReplayIcon />
                             </IconButton>
-                            <Button onClick={resetParticipants} variant="contained"
+                            <Button onClick={resetSoftDeleteParticipants} variant="contained"
                                 size="small" color="warning"
-                            >Reset Soft Delete</Button>
+                            >Reset Soft</Button>
                         </Box>
                     </Box>
 
@@ -553,7 +665,7 @@ export default function SettingsPage() {
                                                     color: "black"
                                                 }}
                                             >
-                                                {p.companyName}
+                                                {p.id !== undefined ? `ID: ${p.id}` : "ID: -"}
                                             </Typography>
                                         </Box>
 
@@ -663,6 +775,16 @@ export default function SettingsPage() {
             <AddParticipantModal
                 open={addParticipantOpen}
                 onClose={() => setAddParticipantOpen(false)}
+            />
+
+            <AddParticipantBulkModal
+                open={addParticipantBulkOpen}
+                onClose={() => setAddParticipantBulkOpen(false)}
+            />
+
+            <StackedNotifications
+                notifications={notifications}
+                onClose={removeNotification}
             />
         </Box>
     );

@@ -7,26 +7,25 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import CreateIcon from '@mui/icons-material/Create';
 import FolderCopyIcon from '@mui/icons-material/FolderCopy';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import ImageIcon from '@mui/icons-material/Image';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import LanguageIcon from '@mui/icons-material/LanguageTwoTone';
+import NavigationIcon from '@mui/icons-material/Navigation';
 import PaletteIcon from '@mui/icons-material/Palette';
 import SaveIcon from '@mui/icons-material/Save';
 import SearchIcon from '@mui/icons-material/Search';
 import ShareIcon from '@mui/icons-material/Share';
+import ShuffleIcon from '@mui/icons-material/Shuffle';
+import SortByAlphaIcon from '@mui/icons-material/SortByAlpha';
 import { Box, Checkbox, Typography } from '@mui/material';
 import axios from "axios";
 import { useEffect, useRef, useState } from "react";
-import ParticipantsEditor from '../_components/ParticipantsEditor';
-import { Prize } from '../settings/page';
-import SortByAlphaIcon from '@mui/icons-material/SortByAlpha';
-import ShuffleIcon from '@mui/icons-material/Shuffle';
-import ImageIcon from '@mui/icons-material/Image';
-import NavigationIcon from '@mui/icons-material/Navigation';
+import Confetti from "react-confetti";
 import CurvedText from "../_components/CurvedText";
 import CurvedTextBottom from "../_components/CurvedTextBottom";
-import WinnerModal from "../_components/WinnerModal";
-import Confetti from "react-confetti";
+import ParticipantsEditor from '../_components/ParticipantsEditor';
 import WinnerModalV2 from "../_components/WinnerModalV2";
+import { Prize } from '../settings/page';
 
 type SpinPageProps = {
 
@@ -61,7 +60,9 @@ const MainSpinPage = (props: SpinPageProps) => {
     const winSound = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
+        // console.log({ queues })
         const nextQueue = queues.find((q: any) => q.is_spun === 0);
+        // console.log({ nextQueue })
         if (nextQueue) {
             const prizeData = prizes.find(p => p.id === nextQueue.prize_id);
             setQueuePrize({ id: nextQueue.prize_id, name: nextQueue.prize_name, winner: prizeData?.winner ?? null, image: nextQueue.image });
@@ -233,7 +234,7 @@ const MainSpinPage = (props: SpinPageProps) => {
             //   }))
             // );
 
-            console.log("All participants reset successfully");
+            // console.log("All participants reset successfully");
         } catch (error) {
             console.error("Failed to reset participants:", error);
         }
@@ -387,11 +388,13 @@ const MainSpinPage = (props: SpinPageProps) => {
             .filter((q) => q.is_spun === 0 && q.winner) // belum spin dan ada winner
             .map((q) => q.winner); // ambil namanya
 
+        console.log({ reservedWinners })
 
         if (queuePrize && queueId) {
             // --- kalau ada queue, cari peserta sesuai queue
             console.log('Queue ditemukan')
             winnerIndex = participants.findIndex((p) => p.name === queuePrize.winner);
+            console.log({ winnerIndex })
 
             if (winnerIndex !== -1) {
                 // Ketemu di daftar
@@ -427,12 +430,17 @@ const MainSpinPage = (props: SpinPageProps) => {
         const finalRotation = rotation + extraTurns + delta;
 
         animateSpin(rotation, finalRotation, 10000, async () => {
+            console.log("SPIN")
+            console.log({ queueId })
             if (queueId) {
+                console.log("UPDATE KE QUEUE " + queueId)
                 console.log('update patch ke queue ' + queueId)
-                await axios.patch("/api/queue", {
+                const res = await axios.patch("/api/queue", {
                     id: queueId,
                     is_spun: 1,
                 });
+                loadQueueData()
+                console.log({ statusUpdateQueue: res.status })
             }
 
             setWinnerModal(true);
